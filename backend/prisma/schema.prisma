@@ -1,0 +1,155 @@
+// 1. Konfigurasi Client
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 2. Konfigurasi Database
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// MODEL USER (Pengguna)
+model User {
+  id       Int      @id @default(autoincrement())
+  email    String   @unique
+  password String
+  name     String
+  role     String   @default("CUSTOMER")
+   
+  // Info Toko 
+  storeName     String?
+  storeLocation String?
+
+  hashedRefreshToken String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relasi
+  products  Product[]
+  cart      Cart?    
+  orders    Order[]  
+  reviews   Review[]
+
+  @@map("users")
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String   @db.Text
+  price       Decimal  @db.Decimal(10, 2)
+  stock       Int
+  category    String
+  sku         String   @unique
+  imageUrl    String?  @db.Text
+  specifications Json?
+
+  variants    Json?    
+  
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+
+  // Relasi
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+  reviews     Review[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("products")
+}
+
+// MODEL CART (Keranjang Belanja)
+model Cart {
+  id        Int      @id @default(autoincrement())
+   
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id])
+   
+  items     CartItem[] 
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  
+  cartId    Int
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id])
+  
+  quantity  Int      @default(1)
+
+  selectedVariant Json? 
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("cart_items")
+}
+
+// MODEL ORDER (Pesanan)
+model Order {
+  id              Int           @id @default(autoincrement())
+  orderNumber     String        @unique
+   
+  userId          Int
+  user            User          @relation(fields: [userId], references: [id])
+   
+  totalPrice      Decimal       @db.Decimal(10, 2)
+  status          String        @default("PENDING") 
+  shippingAddress String        @db.Text
+  paymentMethod   String        @default("TRANSFER")
+   
+  items           OrderItem[]
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  processedAt     DateTime?     
+  shippedAt       DateTime?     
+  deliveredAt     DateTime?     
+  cancelledAt     DateTime?     
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        Int      @id @default(autoincrement())
+  
+  orderId   Int
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id])
+  
+  quantity  Int
+  price     Decimal  @db.Decimal(10, 2)
+
+  selectedVariant Json? 
+
+  @@map("order_items")
+}
+
+// Model Review
+model Review {
+  id        Int      @id @default(autoincrement())
+  rating    Int      
+  comment   String   @db.Text
+  
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("reviews")
+}

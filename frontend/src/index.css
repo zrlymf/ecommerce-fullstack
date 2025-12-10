@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+/* Import Font */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+@theme {
+  /* --- PALET WARNA --- */
+  --color-primary: #F25C05;       /* Oranye */
+  --color-primary-hover: #D94E04; /* Oranye Gelap */
+  --color-dark: #1A1A1A;          /* Hitam Soft */
+  --color-gray-soft: #F8F9FB;     /* Background Abu-abu Kebiruan */
+  --color-border: #E5E7EB;        /* Garis tipis */
+
+  /* --- BENTUK --- */
+  --radius-card: 16px;     /* Lengkungan modern */
+  --radius-button: 12px;   /* Lengkungan tombol */
+  --radius-pill: 9999px;   /* Bulat penuh */
+
+  /* --- SHADOW --- */
+  --shadow-soft: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
+  --shadow-hover: 0 10px 25px -5px rgba(242, 92, 5, 0.15); /* Glow oranye */
+  
+  /* --- FONT --- */
+  --font-sans: "Plus Jakarta Sans", "Inter", sans-serif;
+  
+  /* --- ANIMASI --- */
+  --animate-fade-in: fadeIn 0.5s ease-out;
+}
+
+/* Keyframes untuk animasi muncul */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- GLOBAL SETTINGS --- */
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-gray-soft); 
+  color: var(--color-dark);
+  
+  /* Supaya font TEBAL & HALUS */
+  font-weight: 500; 
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Heading selalu Bold */
+h1, h2, h3, h4, h5 {
+  font-weight: 700;
+  letter-spacing: -0.02em; /* Rapatkan dikit biar aesthetic */
+}
+
+/* Tombol ada efek tekan */
+button:active {
+  transform: scale(0.98); /* Efek 'klik' */
+}

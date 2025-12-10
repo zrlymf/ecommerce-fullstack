@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `orders` ADD COLUMN `paymentMethod` VARCHAR(191) NOT NULL DEFAULT 'TRANSFER';
