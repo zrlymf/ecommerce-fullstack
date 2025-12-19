@@ -1,0 +1,15 @@
+# Folder & File Sampah Sistem
+node_modules
+dist
+build
+.DS_Store
+.vscode
+.idea
+
+# Environment Variables 
+.env
+.env.*
+
+# File Pribadi 
+profile.txt
+docs/
