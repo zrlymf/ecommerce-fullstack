@@ -1,11 +1,13 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from '../email/email.service'; // <--- 1. IMPORT INI
 
 @Injectable()
 export class ProductsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService // <--- 2. INJECT DI SINI
+  ) {}
 
   private transformProduct(product: any) {
     return {
@@ -15,18 +17,14 @@ export class ProductsService {
   }
 
   async create(createProductDto: any, userId: number, imagePath: string) {
-    // Generate SKU otomatis
     const sku = `SKU-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-    // SIMPAN KE DATABASE
     const product = await this.prisma.product.create({
       data: {
         ...createProductDto, 
         sku: sku,
         userId: userId,
         imageUrl: imagePath,
-        
-        // Pastikan konversi number aman
         stock: Number(createProductDto.stock),
         price: Number(createProductDto.price),
       },
@@ -36,6 +34,7 @@ export class ProductsService {
   }
 
   async findAll(query: any) {
+    // ... (Kode findAll tidak perlu diubah, biarkan seperti yang lama)
     const { 
       search, category, page = 1, limit = 10, sellerId, 
       minPrice, maxPrice, availability, sort 
@@ -96,6 +95,7 @@ export class ProductsService {
   }
 
   async findOne(id: number) {
+     // ... (Kode findOne biarkan saja)
     const product = await this.prisma.product.findUnique({ 
       where: { id },
       include: { 
@@ -111,6 +111,7 @@ export class ProductsService {
     return this.transformProduct(product);
   }
 
+  // --- PERBAIKAN DI SINI ---
   async update(id: number, updateProductDto: any, userId: number) {
     const existingProduct = await this.prisma.product.findUnique({ where: { id } });
     if (!existingProduct) throw new NotFoundException('Produk tidak ditemukan');
@@ -121,33 +122,40 @@ export class ProductsService {
     
     const dataToUpdate = { ...updateProductDto };
 
-    // Validasi PRICE
     if (dataToUpdate.price !== undefined) {
         const price = Number(dataToUpdate.price);
-        if (isNaN(price) || price < 0) {
-            throw new BadRequestException('Harga harus berupa angka valid');
-        }
+        if (isNaN(price) || price < 0) throw new BadRequestException('Harga harus angka valid');
         dataToUpdate.price = price;
     }
 
-    // Validasi STOCK 
     if (dataToUpdate.stock !== undefined) {
         const stock = Number(dataToUpdate.stock);
-        if (isNaN(stock) || stock < 0) {
-            throw new BadRequestException('Stok harus berupa angka valid');
-        }
+        if (isNaN(stock) || stock < 0) throw new BadRequestException('Stok harus angka valid');
         dataToUpdate.stock = stock;
     }
 
+    // 3. Update & Include User (Biar bisa kirim email)
     const updatedProduct = await this.prisma.product.update({
       where: { id },
       data: dataToUpdate,
+      include: { user: true } // <--- PENTING
     });
+
+    // 4. Trigger Email Jika Stok < 10 (Manual Update)
+    if (updatedProduct.stock <= 10 && updatedProduct.stock >= 0) {
+       this.emailService.sendLowStockAlert(
+         updatedProduct.user.email,
+         updatedProduct.user.name,
+         updatedProduct.name,
+         updatedProduct.stock
+       );
+    }
 
     return this.transformProduct(updatedProduct);
   }
 
   async remove(id: number, userId: number) {
+    // ... (Kode remove biarkan saja)
     const existingProduct = await this.prisma.product.findUnique({ where: { id } });
     if (!existingProduct) throw new NotFoundException('Produk tidak ditemukan');
 

@@ -67,6 +67,7 @@ export class OrdersService {
         });
 
         for (const item of items) {
+          // Buat Order Item
           await tx.orderItem.create({
             data: {
               orderId: newOrder.id,
@@ -77,14 +78,29 @@ export class OrdersService {
             }
           });
 
-          await tx.product.update({
+          // --- PERBAIKAN DI SINI ---
+          
+          // Update Stok & Ambil Data Terbaru (termasuk info seller untuk email)
+          const updatedProduct = await tx.product.update({
             where: { id: item.productId },
-            data: { stock: { decrement: item.quantity } }
+            data: { stock: { decrement: item.quantity } },
+            include: { user: true } // Ambil data user (seller) pemilik produk
           });
 
-          if (item.product.stock < 10) { 
-            // logic email low stock
+          // Cek Stok Terbaru (Logic Low Stock Alert)
+          // Jika stok <= 10 DAN masih ada (bukan minus)
+          if (updatedProduct.stock <= 10 && updatedProduct.stock >= 0) {
+             // Panggil Email Service
+             await this.emailService.sendLowStockAlert(
+               updatedProduct.user.email, // Email Seller
+               updatedProduct.user.name,  // Nama Seller
+               updatedProduct.name,       // Nama Produk
+               updatedProduct.stock       // Sisa Stok Terkini
+             );
+             console.log(`⚠️ Low Stock Alert Sent for: ${updatedProduct.name}`);
           }
+          
+          // --- AKHIR PERBAIKAN ---
         }
 
         const sellerInfo = items[0].product.user;
@@ -110,7 +126,7 @@ export class OrdersService {
     });
   }
 
-  // 2. LIHAT ORDER (Customer) - Tidak banyak berubah
+  // 2. LIHAT ORDER (Customer)
   async findAllMyOrders(userId: number, query: any = {}) {
     const { status, page = 1, limit = 10, startDate, endDate } = query;
     const skip = (Number(page) - 1) * Number(limit);
@@ -141,7 +157,6 @@ export class OrdersService {
       this.prisma.order.count({ where })
     ]);
 
-    // Format data number
     const data = orders.map(order => ({
       ...order,
       totalPrice: Number(order.totalPrice),
@@ -166,8 +181,6 @@ export class OrdersService {
   }
 
   // 3. LIHAT ORDER MASUK (Seller)
-  // REVISI: Karena Order sudah di-split, logikanya jadi jauh lebih simpel!
-  // Satu order header pasti milik satu seller.
   async findOrdersForSeller(sellerId: number) {
     const orders = await this.prisma.order.findMany({
       where: {
@@ -176,17 +189,15 @@ export class OrdersService {
         }
       },
       include: {
-        user: { select: { name: true, email: true, storeLocation: true } }, // Include data pembeli
+        user: { select: { name: true, email: true, storeLocation: true } },
         items: { include: { product: true } }
       },
       orderBy: { createdAt: 'desc' }
     });
 
-    // Tidak perlu lagi map manual reduce income, karena totalPrice di tabel Order 
-    // sekarang sudah pasti total pendapatan seller tersebut (karena split).
     return orders.map(order => ({
       ...order,
-      totalPrice: Number(order.totalPrice), // Convert Decimal to Number
+      totalPrice: Number(order.totalPrice),
       items: order.items.map(item => ({
         ...item,
         price: Number(item.price),
@@ -198,7 +209,7 @@ export class OrdersService {
     }));
   }
 
-  // 4. UPDATE STATUS (Seller) - Logic tetap, tapi sekarang aman untuk multi-seller
+  // 4. UPDATE STATUS (Seller)
   async updateStatus(orderId: number, dto: UpdateOrderStatusDto, userId: number) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -207,15 +218,7 @@ export class OrdersService {
 
     if (!order) throw new BadRequestException('Order tidak ditemukan');
 
-    // Validasi Tambahan: Pastikan Seller yang update adalah pemilik produk di order ini
-    // (Optional tapi bagus untuk keamanan)
-    // Cek item pertama saja, karena sekarang 1 order = 1 seller
-    /* const firstItemProduct = await this.prisma.product.findUnique({ where: { id: order.items[0].productId }});
-    if (firstItemProduct.userId !== userId) throw new ForbiddenException('Bukan pesanan toko Anda');
-    */
-
     const result = await this.prisma.$transaction(async (tx) => {
-      // Jika cancel, kembalikan stok
       if (dto.status === 'CANCELLED' && order.status !== 'CANCELLED') {
         for (const item of order.items) {
           await tx.product.update({
@@ -245,7 +248,6 @@ export class OrdersService {
       });
     });
 
-    // Email Notifikasi Status Update
     if (['SHIPPED', 'DELIVERED', 'CANCELLED'].includes(dto.status)) {
       if (order.user) {
         this.emailService.sendOrderStatusUpdate(
@@ -260,7 +262,7 @@ export class OrdersService {
     return result;
   }
 
-  // 5. CANCEL ORDER (Customer) - Tidak berubah
+  // 5. CANCEL ORDER (Customer)
   async cancelMyOrder(orderId: number, userId: number) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -296,7 +298,7 @@ export class OrdersService {
     return result;
   }
 
-  // 6. CONFIRM RECEIVED (Customer) - Tidak berubah
+  // 6. CONFIRM RECEIVED (Customer)
   async receiveOrder(orderId: number, userId: number) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },

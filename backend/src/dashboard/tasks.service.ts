@@ -14,7 +14,7 @@ export class TasksService {
 
   // JADWAL: Setiap Hari Senin jam 09:00 Pagi
   // Detik ke-0, Menit ke-0, Jam 9, Setiap Tanggal, Setiap Bulan, Hari Senin (1)
-  @Cron('0 0 9 * * 1') 
+  @Cron('0 0 9 * * 1')
   async handleWeeklyReport() {
     this.logger.log('🔄 Memulai proses laporan mingguan...');
 
